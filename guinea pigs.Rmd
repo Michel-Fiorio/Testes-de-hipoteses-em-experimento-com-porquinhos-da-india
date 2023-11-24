@@ -1,0 +1,267 @@
+---
+title: "Estudo de Caso - Porcos Guine"
+author: "Michel Fiorio"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+# Definição do problema de negócio:
+
+## Há diferença significativa no crescimento dos dentes de acordo com o tipo de suplemento usado nos porquinhos da Índia?
+
+# Dataset a ser utilizado:
+
+## Neste estudo usaremos o dataset ToothGrowth disponível no pacote datasets do RStudio
+
+Esse banco de dados contém um conjunto de registros de acompanhamento do efeito da vitamina C no crescimento dos dentes da espécie porquinho da Índia (guinea pigs, em inglês). Pesquisadores ministraram vitamina C para 60 porquinhos e obtiveram o comprimento final dos odontoblastos (células responsáveis pelo comprimento dos dentes) de cada animal após um certo tempo. Foram utilizados três doses diferentes de vitamina C (0,5, 1 e 2 mg) por dois métodos diferentes de entrega, suco de laranja (OJ) ou ácido ascorbico (VC).
+
+# Análise inicial do dataset:
+
+```{r}
+# Carregando pacotes utilizados
+
+library(ggplot2)
+library(GGally)
+library(moments)
+```
+
+```{r}
+# Compreendendo o dataset
+?ToothGrowth
+
+# Carregando o dataset
+data("ToothGrowth")
+```
+
+```{r}
+# Análise exploratória
+str(ToothGrowth)
+```
+
+```{r}
+# Análise exploratória
+summary(ToothGrowth)
+```
+
+```{r}
+# Histograma da variável len
+hist(ToothGrowth$len)
+```
+
+```{r}
+# Gráfico condicionado a variável supp
+coplot(len ~ dose | supp, data = ToothGrowth, panel = panel.smooth,
+       xlab = "ToothGrowth data: length vs dose, given type of supplement")
+```
+
+```{r}
+# Boxplots por tipo de suplemento
+qplot(supp,
+      len,
+      data = ToothGrowth, 
+      main = "Crescimento dos Dentes dos Porcos Por Tipo de Suplemento",
+      xlab = "Tipo de Suplemento", 
+      ylab = "Comprimento do Dente") + 
+  geom_boxplot(aes(fill = supp))
+```
+
+```{r}
+# Histograma por tipo de suplemento
+ggally_facethist(ToothGrowth, mapping = ggplot2::aes(x = len, y = supp), bins = 8)
+```
+
+# Realização do teste de hipótese estatístico (Teste T) para responder o problema de negócio definido.
+
+## Há diferença significativa no crescimento dos dentes de acordo com o tipo de suplemento usado nos porquinhos da Índia?
+
+Definição das hipóteses do teste.
+
+H0 (hipótese nula) = não há diferença significativa entre as médias dos grupos de suplemento 
+
+H1 (hipótese alternativa) = há diferença significativa entre as médias dos grupos de suplemento
+
+Para aplicar o Teste t primeiro precisamos validar as 5 suposições do Teste.
+
+1- Os dados são aleatórios e representativos da população. 
+
+2- A variável dependente é contínua. 
+
+3- Ambos os grupos são independentes (ou seja, grupos exaustivos e excludentes). 
+
+4- Os resíduos do modelo são normalmente distribuídos. 
+
+5- A variância residual é homogênea (princípio da homocedasticidade).
+
+Vamos considerar que as suposições 1 a 3 são atendidas
+
+Suposição 4 - Validar que os grupos de suplementos OJ e VC são normalmente distribuídos aplicando o teste de Shapiro Wilk.
+
+```{r}
+# Grupo de suplemento OJ
+OJ = subset(ToothGrowth, supp == 'OJ')
+```
+
+```{r}
+# Histograma
+ggplot(data = OJ) + geom_histogram(aes(len), bins = 5)
+```
+
+```{r}
+# Teste de Shapiro Wilk
+# H0 - a amostra segue uma distribuição normal.
+# H1 - a amostra não segue uma distribuição normal.
+shapiro.test(OJ$len)
+```
+
+Resultado do teste para o grupo do suplemento Suco de Laranja (OJ). P- value: 0.02359, rejeitamos a hipótese nula. Os dados não apresentam distribuição normal.
+
+```{r}
+# Verificando coeficiente de assimetria
+skewness(OJ$len)
+```
+
+Resultado: assimetria negativa, maior concentração de dados nos valores mais altos.
+
+```{r}
+# Coeficiente de curtose
+kurtosis(OJ$len)
+```
+
+Resultado: calda mais pesada que o normal. Curva mais achatada.
+
+```{r}
+# Grupo de suplemento VC
+VC <- subset(ToothGrowth, supp == 'VC')
+```
+
+```{r}
+# Histograma
+ggplot(data = VC) + geom_histogram(aes(len), bins = 7)
+```
+
+```{r}
+# Teste de Shapiro Wilk
+# H0 - a amostra segue uma distribuição normal.
+# H1 - a amostra não segue uma distribuição normal.
+shapiro.test(VC$len)
+```
+
+Resultado do teste para o grupo do suplemento Ácido Ascórbico (VC). P- value: 0.4284, falhamos em rejeitar a hipótese nula. Os dados apresentam distribuição normal.
+
+# Como uma das amostras não possui distribuição normal, não será possível usar o teste T.
+
+# Nesse caso usaremos o teste de Wilcoxon.
+
+Definição das hipóteses do teste.
+
+H0 (hipótese nula) = não há diferença significativa entre as médias dos grupos de suplemento 
+
+H1 (hipótese alternativa) = há diferença significativa entre as médias dos grupos de suplemento
+
+```{r}
+# Executando teste de Wilcoxon
+wilcox.test(OJ$len, VC$len, alternative = "two.sided")
+```
+
+Resultado: p = 0.0645. Não é possível rejeitar a hipótese nula.
+
+# Podemos concluir que não há diferença significativa entre as médias dos grupos que receberam a vitamina através de suco de laranja ou através de acido ascorbico.
+
+# Vamos mudar a pergunta do problema de negócio para validar outra suposição.
+
+## Há diferença significativa no crescimento dos dentes de acordo com a dosagem de suplemento usado nos porquinhos da Índia?
+
+Avaliando os gráficos anteriores parece muito óbvio que haja diferença de resultado de acordo com a dosagem da vitamina dada para cada porco. Vamos validar essa suposição. Vamos comparar os resultados (médias) de len para cada um dos três grupos de dosagem.
+
+```{r}
+# Dividindo os dados em três grupos de acordo com a dosagem de vitamina
+
+dose_0_5 = subset(ToothGrowth, dose == 0.5) 
+dose_1 = subset(ToothGrowth, dose == 1)
+dose_2 = subset(ToothGrowth, dose == 2)
+```
+
+# Usaremos o teste de Análise de Variância (ANOVA) na resposta ao novo problema de negócio.
+
+Para aplicar o Teste ANOVA primeiro precisamos validar as 5 suposições do Teste.
+
+1- Os dados são aleatórios e representativos da população. 
+
+2- A variável dependente é contínua. 
+
+3- Ambos os grupos são independentes (ou seja, grupos exaustivos e excludentes). 
+
+4- Os resíduos do modelo são normalmente distribuídos. 
+
+5- A variância residual é homogênea (princípio da homocedasticidade).
+
+Vamos considerar que as suposições 1 a 3 são atendidas.
+
+Suposição 4 - Validar que os grupos de suplementos OJ e VC são normalmente distribuídos.
+
+```{r}
+# Aplicando o teste de Shapiro Wilk no grupo dose 0,5mg
+shapiro.test(dose_0_5$len)
+```
+
+Resultado do teste para o grupo de dose 0,5mg. P- value: 0.2466, falhamos em rejeitar a hipótese nula. Os dados apresentam distribuição normal.
+
+```{r}
+# Aplicando o teste de Shapiro Wilk no grupo dose 1mg
+shapiro.test(dose_1$len)
+```
+
+Resultado do teste para o grupo de dose 1mg. P- value: 0.1639, falhamos em rejeitar a hipótese nula. Os dados apresentam distribuição normal.
+
+```{r}
+# Aplicando o teste de Shapiro Wilk no grupo dose 2mg
+shapiro.test(dose_2$len)
+```
+
+Resultado do teste para o grupo de dose 2mg. P- value: 0.9019, falhamos em rejeitar a hipótese nula. Os dados apresentam distribuição normal.
+
+
+Suposição 5 - Vamos realizar o teste F 
+
+H0 - As Médias dos dados tem a mesma variância. 
+
+H1 - As médias dos dados não tem a mesma variância.
+
+```{r}
+# Teste F entre os grupos dose 0,5mg e 1mg
+var.test(dose_0_5$len, dose_1$len)
+```
+
+Resultado do teste: p-value = 0.9351. Falhamos em rejeitar a hipótese nula. Os dados apresentam mesma variância.
+
+```{r}
+# Teste F entre os grupos dose 1mg e 2mg
+var.test(dose_1$len, dose_2$len)
+```
+
+Resultado do teste: p-value = 0.5005. Falhamos em rejeitar a hipótese nula. Os dados apresentam mesma variância.
+
+Todas as suposições validadas.
+
+Realização do teste ANOVA entre os três grupos de doses.
+
+Hipóteses do teste: 
+
+H0: não há diferença significativa entre as médias dos grupos 
+
+H1: há diferença significativa entre as médias dos grupos
+
+```{r}
+ANOVA = aov(len ~ dose, ToothGrowth)
+summary(ANOVA)
+```
+
+Resultado do teste ANOVA: p- value = 1.23e-14, rejeitamos a hipótese nula.
+
+# Verificamos pelo resultado do ANOVA que há diferenças significativas entre as médias dos grupos que utilizaram doses diferentes de vitamina C.
+
+# Conclusão:
+
+# O tipo de método de entrega da vitamina C não afeta significativamente o comprimento dos dentes dos porquinhos.
+
+# Já a dose da vitamina utilizada tem forte relação com o comprimento dos dentes.
